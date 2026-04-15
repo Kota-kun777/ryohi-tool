@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="theme-color" content="#305496">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="出張精算">
+<title>出張精算ツール</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧳</text></svg>">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: 'Yu Gothic', 'Meiryo', 'Hiragino Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 15px;
+    background: #f5f7fa;
+    color: #333;
+    line-height: 1.5;
+  }
+  h1 {
+    color: #305496;
+    border-bottom: 3px solid #305496;
+    padding-bottom: 10px;
+    font-size: 1.5rem;
+    margin: 10px 0 5px;
+  }
+  .subtitle { color: #666; font-size: 0.9rem; margin: 0 0 20px; }
+  h2 {
+    color: #305496;
+    margin-top: 25px;
+    padding: 10px 15px;
+    background: #DDEBF7;
+    border-left: 5px solid #305496;
+    font-size: 1.1rem;
+  }
+  h3 { color: #444; margin-top: 20px; font-size: 1rem; }
+  .card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    margin-bottom: 15px;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .form-row-full { margin-bottom: 14px; }
+  .form-row-full label, .form-row label {
+    font-weight: 600;
+    color: #555;
+    font-size: 0.95rem;
+  }
+  .form-row-full label {
+    display: block;
+    margin-bottom: 6px;
+  }
+  input, select, textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 16px; /* iOS自動ズーム防止 */
+    font-family: inherit;
+    background: white;
+    min-height: 44px; /* タップターゲット最小サイズ */
+  }
+  input[type="number"] { text-align: right; }
+  input[type="date"] { min-height: 44px; }
+  textarea { min-height: 80px; resize: vertical; }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: #305496;
+    box-shadow: 0 0 0 3px rgba(48,84,150,0.15);
+  }
+  button {
+    background: #305496;
+    color: white;
+    border: none;
+    padding: 14px 20px;
+    font-size: 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s;
+    min-height: 48px;
+    font-family: inherit;
+  }
+  button:active { background: #1F4172; }
+  button.secondary { background: #6c757d; }
+  button.secondary:active { background: #545b62; }
+  button.print { background: #28a745; }
+  button.print:active { background: #1e7e34; }
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+  .actions button { flex: 1 1 auto; min-width: 140px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 8px 10px;
+    text-align: left;
+  }
+  th {
+    background: #305496;
+    color: white;
+    font-weight: 600;
+  }
+  .amount {
+    text-align: right;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .result-table { font-size: 0.95rem; }
+  .highlight-row { background: #FFF2CC; font-weight: 700; }
+  .total-row { background: #C6EFCE; font-weight: 700; font-size: 1rem; }
+  .info-box {
+    background: #DDEBF7;
+    border: 1px solid #305496;
+    padding: 12px;
+    border-radius: 6px;
+    margin: 10px 0;
+    font-size: 0.9rem;
+  }
+  .warning-box {
+    background: #FFF2CC;
+    border: 1px solid #FF9800;
+    padding: 12px;
+    border-radius: 6px;
+    margin: 10px 0;
+    font-size: 0.9rem;
+  }
+  .regulation-info {
+    background: #f8f9fa;
+    padding: 10px;
+    border-left: 3px solid #305496;
+    font-size: 0.85rem;
+    color: #666;
+    margin: 10px 0;
+    border-radius: 4px;
+  }
+  .small-label { font-size: 0.8rem; color: #666; margin-top: 2px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .day-night { display: flex; gap: 10px; align-items: center; }
+  .day-night input { flex: 1; }
+  .day-night span { white-space: nowrap; color: #666; }
+
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .journal {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    overflow-x: auto;
+  }
+  .journal-copy {
+    display: inline-block;
+    padding: 6px 12px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    margin-top: 10px;
+    min-height: 36px;
+  }
+  .tab-btns {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab-btns button {
+    flex: 0 0 auto;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    min-height: 40px;
+  }
+
+  /* ============= モバイル対応 ============= */
+  @media (max-width: 640px) {
+    body { padding: 10px; }
+    h1 { font-size: 1.3rem; }
+    h2 { font-size: 1rem; padding: 8px 12px; margin-top: 20px; }
+    h3 { font-size: 0.95rem; }
+    .card { padding: 15px; border-radius: 8px; }
+
+    .form-row {
+      grid-template-columns: 1fr;
+      gap: 5px;
+      margin-bottom: 15px;
+    }
+    .form-row label {
+      margin-bottom: 3px;
+    }
+
+    .grid-2 {
+      grid-template-columns: 1fr;
+    }
+
+    .actions {
+      gap: 8px;
+    }
+    .actions button {
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+
+    table {
+      font-size: 0.85rem;
+    }
+    th, td {
+      padding: 6px 8px;
+    }
+
+    /* テーブルを横スクロール可能に */
+    .result-table table,
+    .rate-table table {
+      min-width: 500px;
+    }
+    .result-table,
+    .rate-table {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+
+  /* 印刷時 */
+  @media print {
+    body { background: white; padding: 0; }
+    .card { box-shadow: none; page-break-inside: avoid; border: 1px solid #ddd; }
+    .no-print { display: none !important; }
+    h2 { page-break-after: avoid; background: white !important; color: #305496; }
+    th { background: #305496 !important; -webkit-print-color-adjust: exact; color: white !important; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🧳 出張精算ツール</h1>
+<p class="subtitle">精算計算・仕訳自動生成ツール</p>
+
+<!-- ========= 1. 出張情報 ========= -->
+<div class="card">
+  <h2>📋 1. 出張情報</h2>
+  <div class="form-row">
+    <label>出張者区分</label>
+    <select id="traveler" onchange="calculate()">
+      <option value="officer">代表取締役・取締役</option>
+      <option value="employee">従業員</option>
+    </select>
+  </div>
+
+  <div class="form-row">
+    <label>氏名</label>
+    <input type="text" id="name" placeholder="山田 太郎">
+  </div>
+
+  <div class="form-row">
+    <label>出張種別</label>
+    <select id="tripType" onchange="onTypeChange()">
+      <option value="domestic_day">国内日帰り</option>
+      <option value="domestic_stay">国内宿泊</option>
+      <option value="overseas">海外出張</option>
+    </select>
+  </div>
+
+  <div class="form-row" id="regionRow" style="display:none;">
+    <label>地域区分</label>
+    <select id="region" onchange="calculate()">
+      <option value="2">区分2（韓国・中国・台湾・東南アジア）</option>
+      <option value="3">区分3（中東・南アジア）</option>
+      <option value="4">区分4（オセアニア・ハワイ）</option>
+      <option value="5">区分5（欧米・その他）</option>
+    </select>
+  </div>
+
+  <div class="grid-2">
+    <div class="form-row-full">
+      <label>出発日</label>
+      <input type="date" id="startDate">
+    </div>
+    <div class="form-row-full">
+      <label>帰社日</label>
+      <input type="date" id="endDate">
+    </div>
+  </div>
+
+  <div class="form-row-full">
+    <label>出張日数・宿泊数</label>
+    <div class="day-night">
+      <input type="number" id="days" value="1" min="1" onchange="calculate()">
+      <span>日間</span>
+      <input type="number" id="nights" value="0" min="0" onchange="calculate()">
+      <span>泊</span>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <label>出張先</label>
+    <input type="text" id="destination" placeholder="例: 韓国ソウル">
+  </div>
+
+  <div class="form-row-full">
+    <label>出張目的</label>
+    <textarea id="purpose" placeholder="例: 不動産視察、取引先訪問、市場調査など"></textarea>
+  </div>
+
+  <div class="form-row-full">
+    <label>訪問先・面談者</label>
+    <textarea id="visitors" placeholder="例: XX不動産、〇〇様"></textarea>
+  </div>
+
+  <div class="form-row-full">
+    <label>主な成果・報告</label>
+    <textarea id="results" placeholder="出張で得られた成果、今後のアクション等"></textarea>
+  </div>
+
+  <div class="form-row">
+    <label>家族同伴</label>
+    <select id="family" onchange="onFamilyChange()">
+      <option value="none">なし</option>
+      <option value="1">1名（配偶者or未就学児）</option>
+      <option value="2">2名</option>
+    </select>
+  </div>
+</div>
+
+<!-- ========= 2. 実費入力 ========= -->
+<div class="card">
+  <h2>💳 2. 実費（会社負担分）</h2>
+  <div class="regulation-info">会社クレカ決済や立替払いした実費を入力してください。</div>
+
+  <div class="form-row">
+    <label>航空券・新幹線</label>
+    <input type="number" id="transportExpense" value="0" onchange="calculate()">
+  </div>
+  <p class="small-label">往復合計を入力（国内日帰り・国内宿泊は実費精算、海外は方式B差額計算）</p>
+
+  <div class="form-row">
+    <label>宿泊費（合計）</label>
+    <input type="number" id="hotelExpense" value="0" onchange="calculate()">
+  </div>
+  <p class="small-label">1人分の全泊合計（同室でも1人分でOK）</p>
+
+  <div class="form-row">
+    <label>現地交通費</label>
+    <input type="number" id="localTransport" value="0" onchange="calculate()">
+  </div>
+  <p class="small-label">空港↔宿泊先のタクシー等、日当でカバーされない分</p>
+</div>
+
+<!-- ========= 3. 業務関連費用 ========= -->
+<div class="card">
+  <h2>🍽 3. 業務関連費用</h2>
+  <div class="regulation-info">旅費規程とは別に、業務関連で発生した費用（別科目計上）</div>
+
+  <div class="form-row">
+    <label>取引先会食</label>
+    <input type="number" id="entertainment" value="0" onchange="calculate()">
+  </div>
+  <p class="small-label">接待交際費として計上</p>
+
+  <div class="form-row">
+    <label>打合せ食事</label>
+    <input type="number" id="meeting" value="0" onchange="calculate()">
+  </div>
+  <p class="small-label">会議費として計上</p>
+
+  <div class="form-row">
+    <label>業務書籍・資料</label>
+    <input type="number" id="books" value="0" onchange="calculate()">
+  </div>
+  <p class="small-label">新聞図書費として計上</p>
+
+  <div class="form-row">
+    <label>業務備品</label>
+    <input type="number" id="supplies" value="0" onchange="calculate()">
+  </div>
+  <p class="small-label">備品・消耗品費として計上</p>
+</div>
+
+<!-- ========= 4. 家族同伴費用 ========= -->
+<div class="card" id="familyCard" style="display:none;">
+  <h2>👨‍👩‍👦 4. 家族同伴費用</h2>
+  <div class="regulation-info">家族同伴出張補助規程に基づく会社負担分</div>
+
+  <div class="form-row">
+    <label>家族の交通費</label>
+    <input type="number" id="familyTransport" value="0" onchange="calculate()">
+  </div>
+  <div class="form-row">
+    <label>家族の宿泊追加</label>
+    <input type="number" id="familyHotel" value="0" onchange="calculate()">
+  </div>
+  <div class="form-row">
+    <label>家族の食事代</label>
+    <input type="number" id="familyMeal" value="0" onchange="calculate()">
+  </div>
+  <div class="form-row">
+    <label>その他</label>
+    <input type="number" id="familyOther" value="0" onchange="calculate()">
+  </div>
+</div>
+
+<!-- ========= 結果 ========= -->
+<div class="card">
+  <h2>📊 計算結果</h2>
+  <div id="result"></div>
+</div>
+
+<!-- ========= アクション ========= -->
+<div class="actions no-print">
+  <button onclick="calculate()">🔄 再計算</button>
+  <button class="print" onclick="window.print()">🖨 印刷・PDF保存</button>
+  <button class="secondary" onclick="exportJson()">💾 データ保存</button>
+  <button class="secondary" onclick="importJson()">📂 データ読込</button>
+  <button class="secondary" onclick="clearForm()">🗑 クリア</button>
+</div>
+
+<input type="file" id="fileInput" style="display:none" accept=".json" onchange="loadJson(event)">
+
+<!-- ========= 規程サマリー ========= -->
+<div class="card no-print">
+  <h2>📖 規程額サマリー（参照用）</h2>
+  <div class="tab-btns">
+    <button onclick="showTab('flight')">✈ 航空運賃</button>
+    <button onclick="showTab('hotel')">🏨 宿泊費</button>
+    <button onclick="showTab('daily')">☀ 日当</button>
+    <button onclick="showTab('family')">👨‍👩‍👦 家族補助</button>
+  </div>
+
+  <div id="tab_flight" class="rate-table">
+    <h3>航空運賃（往復1人）</h3>
+    <table>
+      <tr><th>区分</th><th>取締役以上</th><th>従業員</th></tr>
+      <tr><td>近隣アジア</td><td class="amount">400,000</td><td class="amount">200,000</td></tr>
+      <tr><td>中東・南アジア</td><td class="amount">700,000</td><td class="amount">350,000</td></tr>
+      <tr><td>オセアニア等</td><td class="amount">800,000</td><td class="amount">400,000</td></tr>
+      <tr><td>欧米等</td><td class="amount">1,300,000</td><td class="amount">650,000</td></tr>
+    </table>
+  </div>
+
+  <div id="tab_hotel" class="rate-table" style="display:none;">
+    <h3>宿泊費（1人1泊）</h3>
+    <table>
+      <tr><th>区分</th><th>取締役以上</th><th>従業員</th></tr>
+      <tr><td>国内</td><td class="amount">30,000</td><td class="amount">18,000</td></tr>
+      <tr><td>近隣アジア</td><td class="amount">45,000</td><td class="amount">28,000</td></tr>
+      <tr><td>中東・南アジア</td><td class="amount">55,000</td><td class="amount">35,000</td></tr>
+      <tr><td>オセアニア等</td><td class="amount">70,000</td><td class="amount">45,000</td></tr>
+      <tr><td>欧米等</td><td class="amount">90,000</td><td class="amount">60,000</td></tr>
+    </table>
+  </div>
+
+  <div id="tab_daily" class="rate-table" style="display:none;">
+    <h3>日当（1日）</h3>
+    <table>
+      <tr><th>区分</th><th>取締役以上</th><th>従業員</th></tr>
+      <tr><td>国内（日帰り・宿泊）</td><td class="amount">15,000</td><td class="amount">5,000</td></tr>
+      <tr><td>近隣アジア</td><td class="amount">25,000</td><td class="amount">15,000</td></tr>
+      <tr><td>中東・南アジア</td><td class="amount">30,000</td><td class="amount">20,000</td></tr>
+      <tr><td>オセアニア等</td><td class="amount">30,000</td><td class="amount">20,000</td></tr>
+      <tr><td>欧米等</td><td class="amount">35,000</td><td class="amount">25,000</td></tr>
+    </table>
+  </div>
+
+  <div id="tab_family" class="rate-table" style="display:none;">
+    <h3>家族同伴補助（家族1名あたり1回）</h3>
+    <table>
+      <tr><th>区分</th><th>上限額</th></tr>
+      <tr><td>国内</td><td class="amount">100,000</td></tr>
+      <tr><td>近隣アジア</td><td class="amount">200,000</td></tr>
+      <tr><td>中東・南アジア</td><td class="amount">400,000</td></tr>
+      <tr><td>オセアニア等</td><td class="amount">450,000</td></tr>
+      <tr><td>欧米等</td><td class="amount">600,000</td></tr>
+    </table>
+    <p class="small-label">※特例承認で1.5倍まで可能</p>
+  </div>
+</div>
+
+<!-- ========= 使い方ガイド ========= -->
+<div class="card no-print">
+  <h2>📱 スマホで使う方法</h2>
+  <h3>方法1: Google Drive経由</h3>
+  <ol>
+    <li>PCでこのHTMLをGoogle Driveにアップロード</li>
+    <li>スマホでGoogle Driveアプリを開く</li>
+    <li>HTMLファイルをタップ → ブラウザで開く</li>
+    <li>「ホーム画面に追加」でアプリ風に使える</li>
+  </ol>
+
+  <h3>方法2: iCloud Drive経由（iPhone）</h3>
+  <ol>
+    <li>PCでiCloud DriveにアップロードまたはAirDropで送信</li>
+    <li>iPhoneのファイルアプリで開く</li>
+    <li>Safari で開いて使用</li>
+  </ol>
+
+  <h3>方法3: メールで送信</h3>
+  <ol>
+    <li>HTMLファイルを自分宛にメール送信</li>
+    <li>スマホで添付ファイルをタップ</li>
+    <li>ブラウザで開いて使用</li>
+  </ol>
+</div>
+
+<script>
+// ===== 規程データ =====
+const RATES = {
+  officer: {
+    flight: { 2: 400000, 3: 700000, 4: 800000, 5: 1300000 },
+    hotel: { 1: 30000, 2: 45000, 3: 55000, 4: 70000, 5: 90000 },
+    daily: { 1: 15000, 2: 25000, 3: 30000, 4: 30000, 5: 35000 }
+  },
+  employee: {
+    flight: { 2: 200000, 3: 350000, 4: 400000, 5: 650000 },
+    hotel: { 1: 18000, 2: 28000, 3: 35000, 4: 45000, 5: 60000 },
+    daily: { 1: 5000, 2: 15000, 3: 20000, 4: 20000, 5: 25000 }
+  }
+};
+
+const FAMILY_LIMIT = { 1: 100000, 2: 200000, 3: 400000, 4: 450000, 5: 600000 };
+
+const REGION_NAMES = {
+  1: '国内',
+  2: '近隣アジア',
+  3: '中東・南アジア',
+  4: 'オセアニア・ハワイ',
+  5: '欧米・その他'
+};
+
+// ===== UI制御 =====
+function onTypeChange() {
+  const type = document.getElementById('tripType').value;
+  const regionRow = document.getElementById('regionRow');
+  regionRow.style.display = (type === 'overseas') ? '' : 'none';
+
+  if (type === 'domestic_day') {
+    document.getElementById('days').value = 1;
+    document.getElementById('nights').value = 0;
+  }
+  calculate();
+}
+
+function onFamilyChange() {
+  const f = document.getElementById('family').value;
+  document.getElementById('familyCard').style.display = (f !== 'none') ? '' : 'none';
+  calculate();
+}
+
+// 日付から日数自動計算
+function autoDays() {
+  const s = document.getElementById('startDate').value;
+  const e = document.getElementById('endDate').value;
+  if (s && e) {
+    const diff = Math.round((new Date(e) - new Date(s)) / 86400000) + 1;
+    if (diff > 0) {
+      document.getElementById('days').value = diff;
+      document.getElementById('nights').value = Math.max(0, diff - 1);
+      calculate();
+    }
+  }
+}
+document.getElementById('startDate').addEventListener('change', autoDays);
+document.getElementById('endDate').addEventListener('change', autoDays);
+
+// タブ切替
+function showTab(name) {
+  ['flight', 'hotel', 'daily', 'family'].forEach(n => {
+    document.getElementById('tab_' + n).style.display = (n === name) ? '' : 'none';
+  });
+}
+
+// ===== 計算処理 =====
+function val(id) {
+  const el = document.getElementById(id);
+  if (!el) return 0;
+  return parseFloat(el.value) || 0;
+}
+
+function calculate() {
+  const traveler = document.getElementById('traveler').value;
+  const tripType = document.getElementById('tripType').value;
+  const region = parseInt(document.getElementById('region').value);
+  const days = parseInt(val('days')) || 1;
+  const nights = parseInt(val('nights')) || 0;
+  const family = document.getElementById('family').value;
+
+  const transportExpense = val('transportExpense');
+  const hotelExpense = val('hotelExpense');
+  const localTransport = val('localTransport');
+  const entertainment = val('entertainment');
+  const meeting = val('meeting');
+  const books = val('books');
+  const supplies = val('supplies');
+  const familyTransport = val('familyTransport');
+  const familyHotel = val('familyHotel');
+  const familyMeal = val('familyMeal');
+  const familyOther = val('familyOther');
+
+  let regulationRegion = (tripType === 'overseas') ? region : 1;
+  const rates = RATES[traveler];
+
+  let flightReg = 0, flightDiff = 0;
+  let hotelReg = 0, hotelDiff = 0;
+  let dailyTotal = 0;
+  let individualPayment = 0;
+
+  if (tripType === 'domestic_day') {
+    dailyTotal = rates.daily[1] * days;
+    individualPayment = dailyTotal;
+  } else if (tripType === 'domestic_stay') {
+    hotelReg = rates.hotel[1] * nights;
+    hotelDiff = Math.max(0, hotelReg - hotelExpense);
+    dailyTotal = rates.daily[1] * days;
+    individualPayment = hotelDiff + dailyTotal;
+  } else if (tripType === 'overseas') {
+    flightReg = rates.flight[region];
+    flightDiff = Math.max(0, flightReg - transportExpense);
+    hotelReg = rates.hotel[region] * nights;
+    hotelDiff = Math.max(0, hotelReg - hotelExpense);
+    dailyTotal = rates.daily[region] * days;
+    individualPayment = flightDiff + hotelDiff + dailyTotal;
+  }
+
+  const familyTotal = familyTransport + familyHotel + familyMeal + familyOther;
+  let familyLimit = 0, familyCovered = 0;
+  if (family !== 'none') {
+    const fNum = parseInt(family);
+    familyLimit = FAMILY_LIMIT[regulationRegion] * fNum;
+    familyCovered = Math.min(familyTotal, familyLimit);
+  }
+
+  const businessTotal = entertainment + meeting + books + supplies;
+  const companyCardTotal = transportExpense + hotelExpense + localTransport;
+  const companyTotal = companyCardTotal + individualPayment + businessTotal + familyCovered;
+
+  renderResult({
+    traveler, tripType, region, regulationRegion, days, nights, family,
+    transportExpense, hotelExpense, localTransport,
+    entertainment, meeting, books, supplies,
+    familyTransport, familyHotel, familyMeal, familyOther,
+    flightReg, flightDiff, hotelReg, hotelDiff, dailyTotal,
+    individualPayment, businessTotal, familyTotal, familyLimit, familyCovered,
+    companyCardTotal, companyTotal
+  });
+}
+
+function fmt(n) {
+  return '¥' + Math.round(n).toLocaleString();
+}
+
+function renderResult(r) {
+  const tripTypeLabel = { domestic_day: '国内日帰り', domestic_stay: '国内宿泊', overseas: '海外出張' };
+  const regionLabel = r.tripType === 'overseas' ? `区分${r.region}（${REGION_NAMES[r.region]}）` : '国内';
+
+  let html = `<div class="result-table">
+    <h3>📋 出張サマリー</h3>
+    <div class="table-scroll"><table>
+      <tr><th width="140">項目</th><th>内容</th></tr>
+      <tr><td>出張種別</td><td>${tripTypeLabel[r.tripType]}</td></tr>
+      <tr><td>地域区分</td><td>${regionLabel}</td></tr>
+      <tr><td>出張日数</td><td>${r.days}日間 ${r.nights > 0 ? '（' + r.nights + '泊）' : ''}</td></tr>
+      <tr><td>家族同伴</td><td>${r.family === 'none' ? 'なし' : r.family + '名'}</td></tr>
+    </table></div>
+
+    <h3>💴 旅費計算</h3>
+    <div class="table-scroll"><table>
+      <tr><th>項目</th><th>規定額</th><th>実費</th><th>差額</th></tr>`;
+
+  if (r.tripType === 'overseas') {
+    html += `<tr><td>航空運賃</td><td class="amount">${fmt(r.flightReg)}</td><td class="amount">${fmt(r.transportExpense)}</td><td class="amount">${fmt(r.flightDiff)}</td></tr>`;
+  } else {
+    html += `<tr><td>交通費（実費精算）</td><td class="amount">—</td><td class="amount">${fmt(r.transportExpense)}</td><td class="amount">—</td></tr>`;
+  }
+
+  if (r.nights > 0) {
+    html += `<tr><td>宿泊費</td><td class="amount">${fmt(r.hotelReg)}</td><td class="amount">${fmt(r.hotelExpense)}</td><td class="amount">${fmt(r.hotelDiff)}</td></tr>`;
+  }
+
+  html += `<tr><td>日当 (${r.days}日分)</td><td class="amount">${fmt(r.dailyTotal)}</td><td class="amount">—</td><td class="amount">${fmt(r.dailyTotal)}</td></tr>
+      <tr class="highlight-row"><td colspan="3">個人への振込（非課税）</td><td class="amount">${fmt(r.individualPayment)}</td></tr>
+    </table></div>`;
+
+  if (r.businessTotal > 0) {
+    html += `<h3>🍽 業務関連費用</h3>
+    <div class="table-scroll"><table>
+      <tr><th>項目</th><th>勘定科目</th><th>金額</th></tr>`;
+    if (r.entertainment > 0) html += `<tr><td>取引先会食</td><td>接待交際費</td><td class="amount">${fmt(r.entertainment)}</td></tr>`;
+    if (r.meeting > 0) html += `<tr><td>打合せ食事</td><td>会議費</td><td class="amount">${fmt(r.meeting)}</td></tr>`;
+    if (r.books > 0) html += `<tr><td>業務書籍</td><td>新聞図書費</td><td class="amount">${fmt(r.books)}</td></tr>`;
+    if (r.supplies > 0) html += `<tr><td>業務備品</td><td>備品・消耗品費</td><td class="amount">${fmt(r.supplies)}</td></tr>`;
+    html += `<tr class="highlight-row"><td colspan="2">業務関連費用合計</td><td class="amount">${fmt(r.businessTotal)}</td></tr>
+    </table></div>`;
+  }
+
+  if (r.family !== 'none' && r.familyTotal > 0) {
+    html += `<h3>👨‍👩‍👦 家族同伴補助</h3>
+    <div class="table-scroll"><table>
+      <tr><th>項目</th><th>金額</th></tr>
+      <tr><td>実費合計</td><td class="amount">${fmt(r.familyTotal)}</td></tr>
+      <tr><td>補助上限</td><td class="amount">${fmt(r.familyLimit)}</td></tr>
+      <tr class="highlight-row"><td>会社負担（福利厚生費）</td><td class="amount">${fmt(r.familyCovered)}</td></tr>
+    </table></div>`;
+    if (r.familyTotal > r.familyLimit) {
+      html += `<div class="warning-box">⚠ 実費超過 ${fmt(r.familyTotal - r.familyLimit)}。特例承認1.5倍申請、または個人負担にしてください。</div>`;
+    }
+  }
+
+  html += `<h3>💰 会社の総支出</h3>
+    <div class="table-scroll"><table>
+      <tr><th>項目</th><th>金額</th></tr>
+      <tr><td>会社クレカ決済（実費）</td><td class="amount">${fmt(r.companyCardTotal)}</td></tr>
+      <tr><td>個人への振込</td><td class="amount">${fmt(r.individualPayment)}</td></tr>
+      <tr><td>業務関連費用</td><td class="amount">${fmt(r.businessTotal)}</td></tr>`;
+  if (r.familyCovered > 0) html += `<tr><td>家族同伴補助</td><td class="amount">${fmt(r.familyCovered)}</td></tr>`;
+  html += `<tr class="total-row"><td>合計会社支出</td><td class="amount">${fmt(r.companyTotal)}</td></tr>
+    </table></div>
+
+    <h3>📝 仕訳例</h3>
+    <div class="journal" id="journalText">${generateJournal(r)}</div>
+    <button class="journal-copy" onclick="copyJournal()">📋 仕訳をコピー</button>
+  </div>`;
+
+  document.getElementById('result').innerHTML = html;
+}
+
+function generateJournal(r) {
+  let txt = '';
+  if (r.companyCardTotal > 0) {
+    txt += '【会社クレカ決済】\n';
+    txt += `(借) 旅費交通費 ${fmt(r.companyCardTotal)}\n  /(貸) 未払金（アメックス等） ${fmt(r.companyCardTotal)}\n\n`;
+  }
+  if (r.entertainment > 0) txt += `(借) 接待交際費 ${fmt(r.entertainment)} /(貸) 未払金（アメックス等） ${fmt(r.entertainment)}\n`;
+  if (r.meeting > 0) txt += `(借) 会議費 ${fmt(r.meeting)} /(貸) 未払金（アメックス等） ${fmt(r.meeting)}\n`;
+  if (r.books > 0) txt += `(借) 新聞図書費 ${fmt(r.books)} /(貸) 未払金（アメックス等） ${fmt(r.books)}\n`;
+  if (r.supplies > 0) txt += `(借) 備品・消耗品費 ${fmt(r.supplies)} /(貸) 未払金（アメックス等） ${fmt(r.supplies)}\n`;
+  if (r.familyCovered > 0) {
+    txt += '\n【家族同伴補助】\n';
+    txt += `(借) 福利厚生費 ${fmt(r.familyCovered)} /(貸) 未払金（アメックス等） ${fmt(r.familyCovered)}\n`;
+  }
+  if (r.individualPayment > 0) {
+    txt += '\n【個人への振込（旅費差額+日当）】\n';
+    txt += `(借) 旅費交通費 ${fmt(r.individualPayment)} /(貸) 普通預金 ${fmt(r.individualPayment)}\n`;
+  }
+  return txt;
+}
+
+function copyJournal() {
+  const txt = document.getElementById('journalText').textContent;
+  navigator.clipboard.writeText(txt).then(() => {
+    alert('仕訳をコピーしました');
+  }).catch(() => {
+    // フォールバック（古いブラウザ）
+    const ta = document.createElement('textarea');
+    ta.value = txt;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('仕訳をコピーしました');
+  });
+}
+
+// ===== データ保存・読込 =====
+function exportJson() {
+  const data = {};
+  ['traveler','name','tripType','region','startDate','endDate','days','nights','destination','purpose','visitors','results','family',
+   'transportExpense','hotelExpense','localTransport',
+   'entertainment','meeting','books','supplies',
+   'familyTransport','familyHotel','familyMeal','familyOther'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) data[id] = el.value;
+  });
+  const name = (data.name || '出張精算').replace(/[\/\\:*?"<>|]/g, '_');
+  const date = data.startDate || new Date().toISOString().slice(0, 10);
+  const filename = `${date}_${name}_出張精算.json`;
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importJson() {
+  document.getElementById('fileInput').click();
+}
+
+function loadJson(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      Object.keys(data).forEach(k => {
+        const el = document.getElementById(k);
+        if (el) el.value = data[k];
+      });
+      onTypeChange();
+      onFamilyChange();
+      calculate();
+      alert('データを読み込みました');
+    } catch (err) {
+      alert('読み込みエラー: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function clearForm() {
+  if (!confirm('入力内容をクリアしますか？')) return;
+  document.querySelectorAll('input:not([type=file]), textarea').forEach(el => {
+    el.value = el.type === 'number' ? '0' : '';
+  });
+  document.getElementById('days').value = 1;
+  document.getElementById('nights').value = 0;
+  document.getElementById('traveler').value = 'officer';
+  document.getElementById('tripType').value = 'domestic_day';
+  document.getElementById('region').value = '2';
+  document.getElementById('family').value = 'none';
+  onTypeChange();
+  onFamilyChange();
+  calculate();
+}
+
+// ===== LocalStorageで自動保存 =====
+const AUTO_SAVE_KEY = 'ryohi_autosave';
+
+function autoSave() {
+  const data = {};
+  document.querySelectorAll('input:not([type=file]), select, textarea').forEach(el => {
+    if (el.id) data[el.id] = el.value;
+  });
+  localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify(data));
+}
+
+function autoLoad() {
+  const saved = localStorage.getItem(AUTO_SAVE_KEY);
+  if (!saved) return;
+  try {
+    const data = JSON.parse(saved);
+    Object.keys(data).forEach(k => {
+      const el = document.getElementById(k);
+      if (el && data[k]) el.value = data[k];
+    });
+  } catch (e) {}
+}
+
+// 入力変更時に自動保存
+document.addEventListener('change', e => {
+  if (e.target.matches('input, select, textarea')) autoSave();
+});
+document.addEventListener('input', e => {
+  if (e.target.matches('input, textarea')) autoSave();
+});
+
+// 初期化
+autoLoad();
+onTypeChange();
+onFamilyChange();
+calculate();
+</script>
+
+</body>
+</html>

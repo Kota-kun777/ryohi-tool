@@ -1,0 +1,17 @@
+# 一時ファイル
+*.tmp
+*.bak
+~$*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# エディタ
+.vscode/
+.idea/
+
+# データファイル（個人情報含む可能性）
+*_出張精算.json
+data/
