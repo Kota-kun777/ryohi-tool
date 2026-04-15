@@ -471,6 +471,26 @@
     <label>役職</label>
     <input type="text" id="position" placeholder="代表取締役" onchange="calculate()">
   </div>
+
+  <div class="form-row-full" style="background:#FFF4E5;padding:10px;border-radius:6px;">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+      <input type="checkbox" id="coTraveler" style="width:auto;min-height:0;" onchange="onCoTravelerChange()">
+      <span>👫 同行者あり（夫婦同行など、2人分をまとめて精算）</span>
+    </label>
+  </div>
+
+  <div id="coTravelerFields" style="display:none;background:#FFF4E5;padding:15px;border-radius:6px;margin-bottom:14px;">
+    <div class="form-row">
+      <label>同行者 氏名</label>
+      <input type="text" id="coName" placeholder="中山 恵理奈" onchange="calculate()">
+    </div>
+    <div class="form-row">
+      <label>同行者 役職</label>
+      <input type="text" id="coPosition" placeholder="取締役" onchange="calculate()">
+    </div>
+    <p class="small-label">※ 同行者も取締役以上として計算されます。航空券・宿泊費・日当がそれぞれ2人分になります。</p>
+  </div>
+
   <div class="form-row">
     <label>出張種別</label>
     <select id="tripType" onchange="onTypeChange()">
@@ -811,6 +831,12 @@ function onFamilyChange() {
   calculate();
 }
 
+function onCoTravelerChange() {
+  const checked = document.getElementById('coTraveler').checked;
+  document.getElementById('coTravelerFields').style.display = checked ? '' : 'none';
+  calculate();
+}
+
 function autoDays() {
   const s = document.getElementById('startDate').value;
   const e = document.getElementById('endDate').value;
@@ -862,6 +888,8 @@ function calculate() {
   const days = parseInt(val('days')) || 1;
   const nights = parseInt(val('nights')) || 0;
   const family = document.getElementById('family').value;
+  const coTraveler = document.getElementById('coTraveler').checked;
+  const numPersons = coTraveler ? 2 : 1;
 
   const transportExpense = val('transportExpense');
   const hotelExpense = val('hotelExpense');
@@ -884,19 +912,19 @@ function calculate() {
   let individualPayment = 0;
 
   if (tripType === 'domestic_day') {
-    dailyTotal = rates.daily[1] * days;
+    dailyTotal = rates.daily[1] * days * numPersons;
     individualPayment = dailyTotal;
   } else if (tripType === 'domestic_stay') {
-    hotelReg = rates.hotel[1] * nights;
+    hotelReg = rates.hotel[1] * nights * numPersons;
     hotelDiff = Math.max(0, hotelReg - hotelExpense);
-    dailyTotal = rates.daily[1] * days;
+    dailyTotal = rates.daily[1] * days * numPersons;
     individualPayment = hotelDiff + dailyTotal;
   } else if (tripType === 'overseas') {
-    flightReg = rates.flight[region];
+    flightReg = rates.flight[region] * numPersons;
     flightDiff = Math.max(0, flightReg - transportExpense);
-    hotelReg = rates.hotel[region] * nights;
+    hotelReg = rates.hotel[region] * nights * numPersons;
     hotelDiff = Math.max(0, hotelReg - hotelExpense);
-    dailyTotal = rates.daily[region] * days;
+    dailyTotal = rates.daily[region] * days * numPersons;
     individualPayment = flightDiff + hotelDiff + dailyTotal;
   }
 
@@ -914,6 +942,7 @@ function calculate() {
 
   renderResult({
     traveler, tripType, region, regulationRegion, days, nights, family,
+    coTraveler, numPersons,
     transportExpense, hotelExpense, localTransport,
     entertainment, meeting, books, supplies,
     familyTransport, familyHotel, familyMeal, familyOther,
@@ -933,6 +962,8 @@ function renderResult(r) {
 
   const name = document.getElementById('name').value;
   const position = document.getElementById('position').value;
+  const coName = document.getElementById('coName').value;
+  const coPosition = document.getElementById('coPosition').value;
   const destination = document.getElementById('destination').value;
   const purpose = document.getElementById('purpose').value;
   const visitors = document.getElementById('visitors').value;
@@ -940,11 +971,16 @@ function renderResult(r) {
   const startDate = document.getElementById('startDate').value;
   const endDate = document.getElementById('endDate').value;
 
+  let travelerDisplay = `${name || '—'}${position ? '（' + position + '）' : ''}`;
+  if (r.coTraveler) {
+    travelerDisplay += `<br>${coName || '—'}${coPosition ? '（' + coPosition + '）' : ''}`;
+  }
+
   let html = `<div class="result-table">
     <h3>📋 出張サマリー</h3>
     <div class="table-scroll"><table>
       <tr><th width="110">項目</th><th>内容</th></tr>
-      <tr><td>氏名</td><td>${name || '—'}${position ? '（' + position + '）' : ''}</td></tr>
+      <tr><td>氏名</td><td>${travelerDisplay}${r.coTraveler ? ' <strong>(2名同行)</strong>' : ''}</td></tr>
       <tr><td>種別・地域</td><td>${tripTypeLabel[r.tripType]} / ${regionLabel}</td></tr>
       <tr><td>出張日程</td><td>${startDate ? formatDate(startDate) : '—'} 〜 ${endDate ? formatDate(endDate) : '—'}（${r.days}日間${r.nights > 0 ? '、' + r.nights + '泊' : ''}）</td></tr>
       <tr><td>出張先</td><td>${destination || '—'}</td></tr>
@@ -954,21 +990,28 @@ function renderResult(r) {
       <tr><td>家族同伴</td><td>${r.family === 'none' ? 'なし' : r.family + '名'}</td></tr>
     </table></div>
 
-    <h3>💴 旅費計算</h3>
+    <h3>💴 旅費計算${r.coTraveler ? '<span style="font-size:0.85rem;color:#666;">（2名分）</span>' : ''}</h3>
     <div class="table-scroll"><table>
       <tr><th>項目</th><th>規定額</th><th>実費</th><th>差額</th></tr>`;
 
+  const personNote = r.coTraveler ? ' ×2名' : '';
+
   if (r.tripType === 'overseas') {
-    html += `<tr><td>航空運賃</td><td class="amount">${fmt(r.flightReg)}</td><td class="amount">${fmt(r.transportExpense)}</td><td class="amount">${fmt(r.flightDiff)}</td></tr>`;
+    html += `<tr><td>航空運賃${personNote}</td><td class="amount">${fmt(r.flightReg)}</td><td class="amount">${fmt(r.transportExpense)}</td><td class="amount">${fmt(r.flightDiff)}</td></tr>`;
   } else {
     html += `<tr><td>交通費（実費精算）</td><td class="amount">—</td><td class="amount">${fmt(r.transportExpense)}</td><td class="amount">—</td></tr>`;
   }
   if (r.nights > 0) {
-    html += `<tr><td>宿泊費</td><td class="amount">${fmt(r.hotelReg)}</td><td class="amount">${fmt(r.hotelExpense)}</td><td class="amount">${fmt(r.hotelDiff)}</td></tr>`;
+    html += `<tr><td>宿泊費${r.coTraveler ? ' ×2名' : ''}</td><td class="amount">${fmt(r.hotelReg)}</td><td class="amount">${fmt(r.hotelExpense)}</td><td class="amount">${fmt(r.hotelDiff)}</td></tr>`;
   }
-  html += `<tr><td>日当 (${r.days}日分)</td><td class="amount">${fmt(r.dailyTotal)}</td><td class="amount">—</td><td class="amount">${fmt(r.dailyTotal)}</td></tr>
-      <tr class="highlight-row"><td colspan="3">個人への振込（非課税）</td><td class="amount">${fmt(r.individualPayment)}</td></tr>
-    </table></div>`;
+  html += `<tr><td>日当 (${r.days}日分${personNote})</td><td class="amount">${fmt(r.dailyTotal)}</td><td class="amount">—</td><td class="amount">${fmt(r.dailyTotal)}</td></tr>
+      <tr class="highlight-row"><td colspan="3">個人への振込 合計（非課税）${r.coTraveler ? '　※2名分まとめて' : ''}</td><td class="amount">${fmt(r.individualPayment)}</td></tr>`;
+
+  if (r.coTraveler) {
+    html += `<tr><td colspan="3" style="text-align:right;">　1名あたり目安（50%按分）</td><td class="amount">${fmt(r.individualPayment / 2)}</td></tr>`;
+  }
+
+  html += `</table></div>`;
 
   if (r.businessTotal > 0) {
     html += `<h3>🍽 業務関連費用</h3>
@@ -1068,13 +1111,15 @@ function printEvidence() {
 function exportJson() {
   const data = {};
   ['companyName','submitDate',
-   'traveler','name','position','tripType','region','startDate','endDate','days','nights','destination','purpose','visitors','results','family',
+   'traveler','name','position','coName','coPosition','tripType','region','startDate','endDate','days','nights','destination','purpose','visitors','results','family',
    'transportExpense','hotelExpense','localTransport',
    'entertainment','meeting','books','supplies',
    'familyTransport','familyHotel','familyMeal','familyOther'].forEach(id => {
     const el = document.getElementById(id);
     if (el) data[id] = el.value;
   });
+  // チェックボックスは別途
+  data['coTraveler'] = document.getElementById('coTraveler').checked;
   const name = (data.name || '出張精算').replace(/[\/\\:*?"<>|]/g, '_');
   const date = data.startDate || new Date().toISOString().slice(0, 10);
   const filename = `${date}_${name}_出張精算.json`;
@@ -1103,10 +1148,16 @@ function loadJson(event) {
       const data = JSON.parse(e.target.result);
       Object.keys(data).forEach(k => {
         const el = document.getElementById(k);
-        if (el) el.value = data[k];
+        if (!el) return;
+        if (el.type === 'checkbox') {
+          el.checked = data[k] === true || data[k] === 'true';
+        } else {
+          el.value = data[k];
+        }
       });
       onTypeChange();
       onFamilyChange();
+      onCoTravelerChange();
       calculate();
       alert('データを読み込みました');
     } catch (err) {
@@ -1142,7 +1193,9 @@ const AUTO_SAVE_KEY = 'ryohi_autosave';
 function autoSave() {
   const data = {};
   document.querySelectorAll('input:not([type=file]), select, textarea').forEach(el => {
-    if (el.id) data[el.id] = el.value;
+    if (el.id) {
+      data[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+    }
   });
   localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify(data));
 }
@@ -1154,7 +1207,12 @@ function autoLoad() {
     const data = JSON.parse(saved);
     Object.keys(data).forEach(k => {
       const el = document.getElementById(k);
-      if (el && data[k]) el.value = data[k];
+      if (!el) return;
+      if (el.type === 'checkbox') {
+        el.checked = data[k] === true;
+      } else if (data[k]) {
+        el.value = data[k];
+      }
     });
   } catch (e) {}
 }
@@ -1173,6 +1231,7 @@ if (!document.getElementById('submitDate').value) {
 }
 onTypeChange();
 onFamilyChange();
+onCoTravelerChange();
 calculate();
 </script>
 
