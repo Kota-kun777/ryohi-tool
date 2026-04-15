@@ -418,7 +418,7 @@
     <input type="password" id="pwInput" placeholder="パスワード" onkeypress="if(event.key==='Enter')checkPassword()">
     <div class="remember">
       <input type="checkbox" id="rememberMe">
-      <label for="rememberMe">ログインを保持する（30日間）</label>
+      <label for="rememberMe">ログインを保持する（120日間）</label>
     </div>
     <button onclick="checkPassword()">ログイン</button>
     <div class="login-error" id="pwError"></div>
@@ -698,7 +698,7 @@
 // パスワードはSHA-256ハッシュで保存（平文では記載しない）
 const PW_HASH = 'b9ce10af0d6c376778a9adf8d2a561d6aa5c6341a62a7dcececbbb30e1fa8ed5';
 const AUTH_KEY = 'ryohi_auth_v1';
-const AUTH_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30日
+const AUTH_EXPIRY = 120 * 24 * 60 * 60 * 1000; // 120日
 
 async function sha256(str) {
   const buf = new TextEncoder().encode(str);
