@@ -553,25 +553,36 @@
   </div>
 </div>
 
-<!-- ========= 2. 実費 ========= -->
-<div class="card no-print">
-  <h2>💳 2. 実費（会社負担分）</h2>
-  <div class="regulation-info">会社クレカ決済や立替払いした実費を入力してください。</div>
+<!-- ========= 2a. 国内宿泊の交通費規定額 ========= -->
+<div class="card no-print" id="domesticTransportCard" style="display:none;">
+  <h2>✈ 2a. 交通費規定額（国内宿泊時）</h2>
+  <div class="regulation-info">新幹線グリーン車・国内線ビジネスクラスの公表運賃（目安）を入力してください。この金額がそのまま個人に支給されます。</div>
   <div class="form-row">
-    <label>航空券・新幹線</label>
+    <label>交通費規定額</label>
+    <input type="number" id="domesticFlightReg" value="0" onchange="calculate()">
+  </div>
+  <p class="small-label">グリーン車相当額 or ビジネスクラス相当額（往復・1人あたり）</p>
+</div>
+
+<!-- ========= 2b. 実費メモ（参考・計算には使いません） ========= -->
+<div class="card no-print">
+  <h2>📝 2b. 実費メモ（参考・計算には使用しません）</h2>
+  <div class="regulation-info">自分の手取り把握のため、実際にかかった金額をメモできます。<strong>計算や仕訳には使用されません</strong>。</div>
+  <div class="form-row">
+    <label>航空券・新幹線（実費）</label>
     <input type="number" id="transportExpense" value="0" onchange="calculate()">
   </div>
-  <p class="small-label">往復合計を入力</p>
+  <p class="small-label">個人BONVOY等で立替えた金額（往復合計）</p>
   <div class="form-row">
-    <label>宿泊費（合計）</label>
+    <label>宿泊費（実費）</label>
     <input type="number" id="hotelExpense" value="0" onchange="calculate()">
   </div>
-  <p class="small-label">1人分の全泊合計</p>
+  <p class="small-label">個人カードで立替えた宿泊費（1人分合計）</p>
   <div class="form-row">
-    <label>現地交通費</label>
+    <label>現地交通費（実費）</label>
     <input type="number" id="localTransport" value="0" onchange="calculate()">
   </div>
-  <p class="small-label">空港↔宿泊先のタクシー等</p>
+  <p class="small-label">タクシー等（日当でカバー範囲）</p>
 </div>
 
 <!-- ========= 3. 業務関連費用 ========= -->
@@ -818,6 +829,8 @@ document.getElementById('submitDate').valueAsDate = new Date();
 function onTypeChange() {
   const type = document.getElementById('tripType').value;
   document.getElementById('regionRow').style.display = (type === 'overseas') ? '' : 'none';
+  // 国内宿泊のみ交通費規定額入力欄を表示
+  document.getElementById('domesticTransportCard').style.display = (type === 'domestic_stay') ? '' : 'none';
   if (type === 'domestic_day') {
     document.getElementById('days').value = 1;
     document.getElementById('nights').value = 0;
@@ -894,6 +907,7 @@ function calculate() {
   const transportExpense = val('transportExpense');
   const hotelExpense = val('hotelExpense');
   const localTransport = val('localTransport');
+  const domesticFlightReg = val('domesticFlightReg');
   const entertainment = val('entertainment');
   const meeting = val('meeting');
   const books = val('books');
@@ -911,22 +925,26 @@ function calculate() {
   let dailyTotal = 0;
   let individualPayment = 0;
 
+  // 完全定額制：規定額がそのまま個人振込額になる
   if (tripType === 'domestic_day') {
+    // 国内日帰り：交通費は会社クレカで実費決済（会社経費）、日当のみ定額支給
     dailyTotal = rates.daily[1] * days * numPersons;
     individualPayment = dailyTotal;
   } else if (tripType === 'domestic_stay') {
+    // 国内宿泊：交通費（ユーザー入力）+ 宿泊費 + 日当 すべて定額支給
+    flightReg = domesticFlightReg * numPersons;
     hotelReg = rates.hotel[1] * nights * numPersons;
-    hotelDiff = Math.max(0, hotelReg - hotelExpense);
     dailyTotal = rates.daily[1] * days * numPersons;
-    individualPayment = hotelDiff + dailyTotal;
+    individualPayment = flightReg + hotelReg + dailyTotal;
   } else if (tripType === 'overseas') {
+    // 海外：航空券 + 宿泊費 + 日当 すべて定額支給
     flightReg = rates.flight[region] * numPersons;
-    flightDiff = Math.max(0, flightReg - transportExpense);
     hotelReg = rates.hotel[region] * nights * numPersons;
-    hotelDiff = Math.max(0, hotelReg - hotelExpense);
     dailyTotal = rates.daily[region] * days * numPersons;
-    individualPayment = flightDiff + hotelDiff + dailyTotal;
+    individualPayment = flightReg + hotelReg + dailyTotal;
   }
+  // 参考：実費との差額（個人の手取り目安）
+  const referenceDiff = individualPayment - transportExpense - hotelExpense - localTransport;
 
   const familyTotal = familyTransport + familyHotel + familyMeal + familyOther;
   let familyLimit = 0, familyCovered = 0;
@@ -946,7 +964,7 @@ function calculate() {
     transportExpense, hotelExpense, localTransport,
     entertainment, meeting, books, supplies,
     familyTransport, familyHotel, familyMeal, familyOther,
-    flightReg, flightDiff, hotelReg, hotelDiff, dailyTotal,
+    flightReg, hotelReg, dailyTotal, referenceDiff,
     individualPayment, businessTotal, familyTotal, familyLimit, familyCovered,
     companyCardTotal, companyTotal
   });
@@ -990,28 +1008,44 @@ function renderResult(r) {
       <tr><td>家族同伴</td><td>${r.family === 'none' ? 'なし' : r.family + '名'}</td></tr>
     </table></div>
 
-    <h3>💴 旅費計算${r.coTraveler ? '<span style="font-size:0.85rem;color:#666;">（2名分）</span>' : ''}</h3>
+    <h3>💴 旅費計算（定額支給）${r.coTraveler ? '<span style="font-size:0.85rem;color:#666;">（2名分）</span>' : ''}</h3>
     <div class="table-scroll"><table>
-      <tr><th>項目</th><th>規定額</th><th>実費</th><th>差額</th></tr>`;
+      <tr><th>項目</th><th>規定額（支給額）</th></tr>`;
 
   const personNote = r.coTraveler ? ' ×2名' : '';
 
-  if (r.tripType === 'overseas') {
-    html += `<tr><td>航空運賃${personNote}</td><td class="amount">${fmt(r.flightReg)}</td><td class="amount">${fmt(r.transportExpense)}</td><td class="amount">${fmt(r.flightDiff)}</td></tr>`;
-  } else {
-    html += `<tr><td>交通費（実費精算）</td><td class="amount">—</td><td class="amount">${fmt(r.transportExpense)}</td><td class="amount">—</td></tr>`;
+  if (r.tripType === 'domestic_day') {
+    html += `<tr><td>交通費（会社クレカで実費決済）</td><td class="amount">—</td></tr>`;
+  } else if (r.tripType === 'domestic_stay') {
+    html += `<tr><td>交通費規定額${personNote}</td><td class="amount">${fmt(r.flightReg)}</td></tr>`;
+  } else if (r.tripType === 'overseas') {
+    html += `<tr><td>航空運賃規定額${personNote}</td><td class="amount">${fmt(r.flightReg)}</td></tr>`;
   }
-  if (r.nights > 0) {
-    html += `<tr><td>宿泊費${r.coTraveler ? ' ×2名' : ''}</td><td class="amount">${fmt(r.hotelReg)}</td><td class="amount">${fmt(r.hotelExpense)}</td><td class="amount">${fmt(r.hotelDiff)}</td></tr>`;
+  if (r.nights > 0 && (r.tripType === 'domestic_stay' || r.tripType === 'overseas')) {
+    html += `<tr><td>宿泊費規定額${r.coTraveler ? ' ×2名' : ''}</td><td class="amount">${fmt(r.hotelReg)}</td></tr>`;
   }
-  html += `<tr><td>日当 (${r.days}日分${personNote})</td><td class="amount">${fmt(r.dailyTotal)}</td><td class="amount">—</td><td class="amount">${fmt(r.dailyTotal)}</td></tr>
-      <tr class="highlight-row"><td colspan="3">個人への振込 合計（非課税）${r.coTraveler ? '　※2名分まとめて' : ''}</td><td class="amount">${fmt(r.individualPayment)}</td></tr>`;
+  html += `<tr><td>日当 (${r.days}日分${personNote})</td><td class="amount">${fmt(r.dailyTotal)}</td></tr>
+      <tr class="highlight-row"><td>個人への振込額 合計${r.coTraveler ? '　※2名分まとめて' : ''}</td><td class="amount">${fmt(r.individualPayment)}</td></tr>`;
 
   if (r.coTraveler) {
-    html += `<tr><td colspan="3" style="text-align:right;">　1名あたり目安（50%按分）</td><td class="amount">${fmt(r.individualPayment / 2)}</td></tr>`;
+    html += `<tr><td style="text-align:right;">　1名あたり目安（50%按分）</td><td class="amount">${fmt(r.individualPayment / 2)}</td></tr>`;
   }
 
   html += `</table></div>`;
+
+  // 実費メモ（参考）
+  const totalRef = r.transportExpense + r.hotelExpense + r.localTransport;
+  if (totalRef > 0) {
+    html += `<h3>📝 実費メモ（参考・計算には含まれません）</h3>
+    <div class="table-scroll"><table>
+      <tr><th>項目</th><th>実費</th></tr>
+      <tr><td>航空券・新幹線</td><td class="amount">${fmt(r.transportExpense)}</td></tr>
+      <tr><td>宿泊費</td><td class="amount">${fmt(r.hotelExpense)}</td></tr>
+      <tr><td>現地交通費</td><td class="amount">${fmt(r.localTransport)}</td></tr>
+      <tr><td><strong>実費合計</strong></td><td class="amount">${fmt(totalRef)}</td></tr>
+      <tr class="highlight-row"><td>規定額 − 実費（個人の手取り目安）</td><td class="amount">${fmt(r.referenceDiff)}</td></tr>
+    </table></div>`;
+  }
 
   if (r.businessTotal > 0) {
     html += `<h3>🍽 業務関連費用</h3>
@@ -1038,30 +1072,38 @@ function renderResult(r) {
     }
   }
 
+  // 国内日帰りは交通費会社クレカ、それ以外はなし（実費は個人負担）
+  const actualCompanyCard = (r.tripType === 'domestic_day') ? r.transportExpense + r.localTransport : 0;
+
   html += `<h3>💰 会社の総支出</h3>
     <div class="table-scroll"><table>
-      <tr><th>項目</th><th>金額</th></tr>
-      <tr><td>会社クレカ決済（実費）</td><td class="amount">${fmt(r.companyCardTotal)}</td></tr>
-      <tr><td>個人への振込</td><td class="amount">${fmt(r.individualPayment)}</td></tr>
+      <tr><th>項目</th><th>金額</th></tr>`;
+  if (actualCompanyCard > 0) {
+    html += `<tr><td>会社クレカ決済（実費）</td><td class="amount">${fmt(actualCompanyCard)}</td></tr>`;
+  }
+  html += `<tr><td>個人への振込（規定額定額支給）</td><td class="amount">${fmt(r.individualPayment)}</td></tr>
       <tr><td>業務関連費用</td><td class="amount">${fmt(r.businessTotal)}</td></tr>`;
   if (r.familyCovered > 0) html += `<tr><td>家族同伴補助</td><td class="amount">${fmt(r.familyCovered)}</td></tr>`;
-  html += `<tr class="total-row"><td>合計会社支出</td><td class="amount">${fmt(r.companyTotal)}</td></tr>
+  const realCompanyTotal = actualCompanyCard + r.individualPayment + r.businessTotal + r.familyCovered;
+  html += `<tr class="total-row"><td>合計会社支出</td><td class="amount">${fmt(realCompanyTotal)}</td></tr>
     </table></div>
 
     <h3 class="no-print">📝 仕訳例</h3>
-    <div class="journal no-print" id="journalText">${generateJournal(r)}</div>
+    <div class="journal no-print" id="journalText">${generateJournal(r, actualCompanyCard)}</div>
     <button class="journal-copy no-print" onclick="copyJournal()">📋 仕訳をコピー</button>
   </div>`;
 
   document.getElementById('result').innerHTML = html;
 }
 
-function generateJournal(r) {
+function generateJournal(r, actualCompanyCard) {
   let txt = '';
-  if (r.companyCardTotal > 0) {
-    txt += '【会社クレカ決済】\n';
-    txt += `(借) 旅費交通費 ${fmt(r.companyCardTotal)}\n  /(貸) 未払金（アメックス等） ${fmt(r.companyCardTotal)}\n\n`;
+  // 国内日帰りのみ、交通費は会社クレカで実費計上
+  if (actualCompanyCard && actualCompanyCard > 0) {
+    txt += '【会社クレカ決済（国内日帰りの交通費実費）】\n';
+    txt += `(借) 旅費交通費 ${fmt(actualCompanyCard)}\n  /(貸) 未払金（アメックス等） ${fmt(actualCompanyCard)}\n\n`;
   }
+  // 業務関連費用
   if (r.entertainment > 0) txt += `(借) 接待交際費 ${fmt(r.entertainment)} /(貸) 未払金（アメックス等） ${fmt(r.entertainment)}\n`;
   if (r.meeting > 0) txt += `(借) 会議費 ${fmt(r.meeting)} /(貸) 未払金（アメックス等） ${fmt(r.meeting)}\n`;
   if (r.books > 0) txt += `(借) 新聞図書費 ${fmt(r.books)} /(貸) 未払金（アメックス等） ${fmt(r.books)}\n`;
@@ -1070,9 +1112,12 @@ function generateJournal(r) {
     txt += '\n【家族同伴補助】\n';
     txt += `(借) 福利厚生費 ${fmt(r.familyCovered)} /(貸) 未払金（アメックス等） ${fmt(r.familyCovered)}\n`;
   }
+  // 個人への規定額振込（完全定額制）
   if (r.individualPayment > 0) {
-    txt += '\n【個人への振込（旅費差額+日当）】\n';
+    txt += '\n【個人への振込（旅費規程に基づく定額支給）】\n';
     txt += `(借) 旅費交通費 ${fmt(r.individualPayment)} /(貸) 普通預金 ${fmt(r.individualPayment)}\n`;
+    txt += '※ 規定額のみ支給。実費との精算は行わない\n';
+    txt += '※ 実費は出張者個人が立替（個人BONVOY等）\n';
   }
   return txt;
 }
@@ -1112,7 +1157,7 @@ function exportJson() {
   const data = {};
   ['companyName','submitDate',
    'traveler','name','position','coName','coPosition','tripType','region','startDate','endDate','days','nights','destination','purpose','visitors','results','family',
-   'transportExpense','hotelExpense','localTransport',
+   'domesticFlightReg','transportExpense','hotelExpense','localTransport',
    'entertainment','meeting','books','supplies',
    'familyTransport','familyHotel','familyMeal','familyOther'].forEach(id => {
     const el = document.getElementById(id);
